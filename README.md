@@ -1,16 +1,11 @@
-# spree_paytm
-Paytm payment gateway integration for spree
-
-For live demo please [click here](http://spree-paytm-demo.herokuapp.com/)
-
-You can also look at demo source code at [https://github.com/monika-khatri/spree-paytm-demo](https://github.com/monika-khatri/spree-paytm-demo)
-
+# solidus_paytm
+Paytm payment gateway integration for solidus
 
 ## Installation
 
 1. Add this extension to your Gemfile with this line:
 
-        gem 'spree_paytm', :github => 'monika-khatri/spree_paytm'
+        gem 'solidus_paytm', :github => 'samadimsys/solidus_paytm'
 
 2. Install the gem using Bundler:
 
@@ -18,13 +13,13 @@ You can also look at demo source code at [https://github.com/monika-khatri/spree
 
 3. Add migrations from extension:
 
-        rails g spree_paytm:install
+        rails g solidus_paytm:install
 
 4. Restart your server
 
 5. Add new payment method with provider
 
-        Spree::Gateway::Paytm
+        Solidus::Gateway::Paytm
 
 6. Set all credentials from your paytm sandbox account. If you don't have it you can use from [Paytm Discussion Forum](http://paywithpaytm.com/developer/discussion/topic/sandbox-test-credentials-for-testing-paytm-solutions/)
 
