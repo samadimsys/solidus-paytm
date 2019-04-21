@@ -5,7 +5,7 @@ $:.unshift lib unless $:.include?(lib)
 require 'spree_paytm/version'
 Gem::Specification.new do |s|
   s.platform              = Gem::Platform::RUBY
-  s.name                  = 'spree_paytm'
+  s.name                  = 'solidus_paytm'
   s.version               = SpreePaytm::VERSION
   s.summary               = 'Paytm integration into spree application.'
   s.description           = s.summary
