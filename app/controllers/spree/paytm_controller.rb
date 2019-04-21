@@ -26,7 +26,9 @@ module Spree
         @param_list['MOBILE_NO'] = phone
         @param_list['EMAIL'] = order.email
 
-        checksum = payment_method.new_pg_checksum(@param_list)
+        @param_list["CALLBACK_URL"] = "http://7dd08f4e.ngrok.io/paytm/confirm";
+
+        checksum = payment_method.new_pg_checksum(@param_list, payment_method.preferred_merchant_key)
         @param_list['CHECKSUMHASH'] = checksum
         @paytm_txn_url = payment_method.txn_url
       end
@@ -50,21 +52,36 @@ module Spree
         response_code: params['RESPCODE']
       )
       if @status == "TXN_SUCCESS"
-        @order.next
+        @payment.complete!
+        advance_and_complete(@payment.order)
+        # @order.next
         @message = Spree.t(:order_processed_successfully)
         @current_order = nil
         flash.notice = Spree.t(:order_processed_successfully)
         flash['order_completed'] = true
         @error = false
-        @redirect_path = order_path(@order)
+        redirect_to redirect_path(@payment.try(:order))
+        # @redirect_path = order_path(@order)
       else
         @payment.state = "failed"
         @payment.save
         @order.update_attributes(payment_state: "failed")
         @error = true
         @message = "There was an error processing your payment"
-        @redirect_path = checkout_state_path(@order.state)
+        redirect_to redirect_path(@payment.try(:order))
+        # @redirect_path = checkout_state_path(@order.state)
       end
     end
+
+    def advance_and_complete(order)
+      order.next!
+      order.complete! if order.can_complete?
+    end
+
+    def redirect_path(order)
+      return cart_path unless order
+      order.complete? ? order_path(order) : checkout_state_path(order.state)
+    end
+
   end
 end

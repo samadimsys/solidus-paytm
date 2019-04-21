@@ -44,27 +44,37 @@ module Spree
     end
 
     def txn_url
-      'https://' + domain + '/oltp-web/processTransaction'
+      # 'https://' + domain + '/oltp-web/processTransaction'
+      'https://' + domain + '/theia/processTransaction'
     end
 
     def request_type
       'DEFAULT' #or SUBSCRIBE
     end
+
+    require 'openssl'
+    require 'base64'
+    require 'digest'
+    require 'securerandom'
+
     ### function returns dictionary of encrypted data ###
     ### accepts a dictionary with data and key to encrypt with ###
     ### can accept multiple key value pairs in the dictionary ###
-    def new_pg_encrypt(params)
-      if (params.class != Hash) || (params.keys == [])
+    def new_pg_encrypt(paytmparams)
+      if (paytmparams.class != Hash) || (paytmparams.keys == [])
         return false
       end
-
+      if !paytmparams.has_key?(:key)
+        return false
+      end
       encrypted_data = Hash[]
-      key = preferred_merchant_key
-      keys = params.keys
-      aes = OpenSSL::Cipher::Cipher.new("aes-128-cbc")
+      key = paytmparams.delete(:key)
+      keys = paytmparams.keys
+      ###aes = OpenSSL::Cipher::Cipher.new("aes-128-cbc")
+      aes = OpenSSL::Cipher::AES.new('128-CBC')
       begin
         keys.each do |k|
-          data = params[k]
+          data = paytmparams[k]
           aes.encrypt
           aes.key = key
           aes.iv = '@@@@&&&&####$$$$'
@@ -84,10 +94,12 @@ module Spree
 
     ### function returns a single encrypted value ###
     ### input data -> value to be encrypted ###
-    def new_pg_encrypt_variable(data)
-      aes = OpenSSL::Cipher::Cipher.new("aes-128-cbc")
+    ### key -> key to use for encryption ###
+    def new_pg_encrypt_variable(data, key)
+      ##aes = OpenSSL::Cipher::Cipher.new("aes-128-cbc")
+      aes = OpenSSL::Cipher::AES.new('128-CBC')
       aes.encrypt
-      aes.key = preferred_merchant_key
+      aes.key = key
       aes.iv = '@@@@&&&&####$$$$'
       encrypted_data = nil
       begin
@@ -97,24 +109,27 @@ module Spree
         return false
       end
       return encrypted_data
-    end
+    end  
 
 
     ### function returns dictionary of decrypted data ###
     ### accepts a dictionary with data and key to decrypt with ###
     ### can accept multiple key value pairs in the dictionary ###
-    def new_pg_decrypt(params)
-      if (params.class != Hash) || (params.keys == [])
+    def new_pg_decrypt(paytmparams)
+      if (paytmparams.class != Hash) || (paytmparams.keys == [])
         return false
       end
-
+      if !paytmparams.has_key?(:key)
+        return false
+      end
       decrypted_data = Hash[]
-      key = preferred_merchant_key
-      keys = params.keys
-      aes = OpenSSL::Cipher::Cipher.new("aes-128-cbc")
+      key = paytmparams.delete(:key)
+      keys = paytmparams.keys
+      ##aes = OpenSSL::Cipher::Cipher.new("aes-128-cbc")
+      aes = OpenSSL::Cipher::AES.new('128-CBC')
       begin
         keys.each do |k|
-          data = params[k]
+          data = paytmparams[k]
           aes.decrypt
           aes.key = key
           aes.iv = '@@@@&&&&####$$$$'
@@ -139,10 +154,12 @@ module Spree
 
     ### function returns a single decrypted value ###
     ### input data -> value to be decrypted ###
-    def new_pg_decrypt_variable(data)
-      aes = OpenSSL::Cipher::Cipher.new("aes-128-cbc")
+    ### key -> key to use for decryption ###
+    def new_pg_decrypt_variable(data, key)
+      ##aes = OpenSSL::Cipher::Cipher.new("aes-128-cbc")
+      aes = OpenSSL::Cipher::AES.new('128-CBC')
       aes.decrypt
-      aes.key = preferred_merchant_key
+      aes.key = key
       aes.iv = '@@@@&&&&####$$$$'
       decrypted_data = nil
       begin
@@ -164,71 +181,129 @@ module Spree
     ### function returns checksum of given key value pairs ###
     ### accepts a hash with key value pairs ###
     ### calculates sha256 checksum of given values ###
-    def new_pg_checksum(params, salt_length = 4)
-      if params.class != Hash
+    def new_pg_checksum(paytmparams, key, salt_length = 4)
+      if paytmparams.class != Hash
         return false
       end
-      key = preferred_merchant_key
+      if key.empty?
+        return false
+      end
       salt = new_pg_generate_salt(salt_length)
-      keys = params.keys
+      keys = paytmparams.keys
       str = nil
       keys = keys.sort
       keys.each do |k|
         if str.nil?
-          str = params[k].to_s
+          str = paytmparams[k].to_s
           next
         end
-        str = str + '|'  + params[k].to_s
+        str = str + '|'  + paytmparams[k].to_s
       end
       str = str + '|' + salt
       check_sum = Digest::SHA256.hexdigest(str)
       check_sum = check_sum + salt
       ### encrypting checksum ###
-      check_sum = new_pg_encrypt_variable(check_sum)
+      check_sum = new_pg_encrypt_variable(check_sum, key)
+      check_sum = check_sum.gsub("\r\n",'')
+      check_sum = check_sum.gsub("\n",'')
+      return check_sum
+    end
+    
+    ### function returns checksum of given String ###
+    ### accepts a hash with String ###
+    ### calculates sha256 checksum of given values ###
+    def new_pg_checksum_by_String(strdata, key, salt_length = 4)
+      if strdata.empty?
+        return false
+      end
+      if key.empty?
+        return false
+      end
+      salt = new_pg_generate_salt(salt_length)
+      str = nil
+      str = strdata + '|' + salt
+      check_sum = Digest::SHA256.hexdigest(str)
+      check_sum = check_sum + salt
+      ### encrypting checksum ###
+      check_sum = new_pg_encrypt_variable(check_sum, key)
+      check_sum = check_sum.gsub("\r\n",'')
+      check_sum = check_sum.gsub("\n",'')
       return check_sum
     end
 
-
+    ### function returns checksum of given key value pairs ###
+    ### accepts a hash with key value pairs ###
+    ### calculates sha256 checksum of given values ###
+    def new_pg_refund_checksum(paytmparams, key, salt_length = 4)
+      keys = paytmparams.keys
+      keys.each do |k|
+        if ! paytmparams[k].empty?
+          #if params[k].to_s.include? "REFUND"
+          unless paytmparams[k].to_s.include? "|"
+              next
+          end
+          paytmparams[k] = paytmparams[k]
+        end
+      end
+      if paytmparams.class != Hash
+        return false
+      end
+      if key.empty?
+        return false
+      end
+      salt = new_pg_generate_salt(salt_length)
+      keys = paytmparams.keys
+      str = nil
+      keys = keys.sort
+      keys.each do |k|
+        if str.nil?
+          str = paytmparams[k].to_s
+          next
+        end
+        str = str + '|'  + paytmparams[k].to_s
+      end
+      str = str + '|' + salt
+      check_sum = Digest::SHA256.hexdigest(str)
+      check_sum = check_sum + salt
+      ### encrypting checksum ###
+      check_sum = new_pg_encrypt_variable(check_sum, key)
+      check_sum = check_sum.gsub("\r\n",'')
+      check_sum = check_sum.gsub("\n",'')
+      return check_sum
+    end
+    
     ### function returns checksum of given key value pairs (must contain the :checksum key) ###
     ### accepts a hash with key value pairs ###
     ### calculates sha256 checksum of given values ###
     ### returns true if checksum is consistent ###
     ### returns false in case of inconsistency ###
-    def new_pg_verify_checksum(params, check_sum, salt_length = 4)
-
-      if params.class != Hash
+    def new_pg_verify_checksum_by_String(strdata, check_sum, key, salt_length = 4)
+      if strdata.empty?
         return false
       end
-
+      if key.empty?
+        return false
+      end
       if check_sum.nil? || check_sum.empty?
         return false
       end
-      key = preferred_merchant_key
       generated_check_sum = nil
-      check_sum = new_pg_decrypt_variable(check_sum)
 
+      check_sum = check_sum.gsub("\r\n",'')
+      check_sum = check_sum.gsub("\n",'')
+
+      check_sum = new_pg_decrypt_variable(check_sum, key)
       if check_sum == false
         return false
       end
       begin
         salt = check_sum[(check_sum.length-salt_length), (check_sum.length)]
-        keys = params.keys
-        str = nil
-        keys = keys.sort
-        keys.each do |k|
-          if str.nil?
-            str = params[k].to_s
-            next
-          end
-          str = str + '|' + params[k].to_s
-        end
-        str = str + '|' + salt
+        str = strdata + '|' + salt
         generated_check_sum = Digest::SHA256.hexdigest(str)
         generated_check_sum = generated_check_sum + salt
       rescue Exception => e
         return false
       end
-
       if check_sum == generated_check_sum
         return true
       else
@@ -236,13 +311,68 @@ module Spree
       end
     end
 
+    ### function returns checksum of given key value pairs (must contain the :checksum key) ###
+    ### accepts a hash with key value pairs ###
+    ### calculates sha256 checksum of given values ###
+    ### returns true if checksum is consistent ###
+    ### returns false in case of inconsistency ###
+    def new_pg_verify_checksum(paytmparams, check_sum, key, salt_length = 4)
+      if paytmparams.class != Hash
+        return false
+      end
+      if key.empty?
+        return false
+      end
+      if check_sum.nil? || check_sum.empty?
+        return false
+      end
+      generated_check_sum = nil
+
+      check_sum = check_sum.gsub("\r\n",'')
+      check_sum = check_sum.gsub("\n",'')
+      
+      check_sum = new_pg_decrypt_variable(check_sum, key)
+      if check_sum == false
+        return false
+      end
+      begin
+        salt = check_sum[(check_sum.length-salt_length), (check_sum.length)]
+        keys = paytmparams.keys
+        str = nil
+        keys = keys.sort
+        keys.each do |k|
+          if str.nil?
+            str = paytmparams[k].to_s
+            next
+          end
+          str = str + '|' + paytmparams[k].to_s
+        end
+        str = str + '|' + salt
+        generated_check_sum = Digest::SHA256.hexdigest(str)
+        generated_check_sum = generated_check_sum + salt
+      rescue Exception => e
+        return false
+      end
+      if check_sum == generated_check_sum
+        return true
+      else
+        return false
+      end
+    end
+
+
     private
     def domain
-      domain = 'secure.paytm.in'
+      domain = 'securegw.paytm.in'
       if (preferred_test_mode == true)
-        domain = 'pguat.paytm.com'
+        domain = 'securegw-stage.paytm.in'
       end
       domain
+      # domain = 'secure.paytm.in'
+      # if (preferred_test_mode == true)
+      #   domain = 'pguat.paytm.com'
+      # end
+      # domain
     end
   end
 end
