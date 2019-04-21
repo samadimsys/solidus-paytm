@@ -13,7 +13,7 @@ Gem::Specification.new do |s|
 
   s.author    = 'Monika Khatri'
   s.email     = 'monika.khatri.d@gmail.com'
-  s.homepage  = 'https://github.com/samadimsys/spree-paytm'
+  s.homepage  = 'https://github.com/samadimsys/solidus-paytm'
 
   s.files        = `git ls-files`.split("\n")
   s.test_files   = `git ls-files -- spec/*`.split("\n")
