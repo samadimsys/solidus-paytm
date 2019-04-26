@@ -26,7 +26,8 @@ module Spree
         @param_list['MOBILE_NO'] = phone
         @param_list['EMAIL'] = order.email
 
-        @param_list["CALLBACK_URL"] = "http://7dd08f4e.ngrok.io/paytm/confirm";
+        # @param_list["CALLBACK_URL"] = "http://7dd08f4e.ngrok.io/paytm/confirm";
+        @param_list["CALLBACK_URL"] = @param_list['WEBSITE'].to_s + "/paytm/confirm".to_s;
 
         checksum = payment_method.new_pg_checksum(@param_list, payment_method.preferred_merchant_key)
         @param_list['CHECKSUMHASH'] = checksum
