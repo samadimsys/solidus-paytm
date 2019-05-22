@@ -1,3 +1,3 @@
 module SpreePaytm
-  VERSION = '1.0.3.7'
+  VERSION = '1.0.3.8'
 end
