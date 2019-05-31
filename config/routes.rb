@@ -6,7 +6,9 @@
 
 Spree::Core::Engine.routes.draw do
 	get '/paytm', :to => "paytm#index", :as => :paytm_proceed
-	# post '/paytm', :to => "paytm#index", :as => :paytm_proceed
+	post '/paytm', :to => "paytm#index", :as => :paytm_proceed
+	get '/paytm/confirm', :to => "paytm#confirm", :as => :paytm_confirm
   	post '/paytm/confirm', :to => "paytm#confirm", :as => :paytm_confirm
+  	get '/paytm/cancel', :to => "paytm#cancel", :as => :paytm_cancel
   	post '/paytm/cancel', :to => "paytm#cancel", :as => :paytm_cancel
 end
